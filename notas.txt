@@ -1,0 +1,9 @@
+playlist vacias - recomendar las 500 
+otro - las 500 más populares (no puedes recomendar las que ya están en la lista)
+
+usar librerías para las métricas, aunque recomienda probar manualmente.
+-> la tercera no está en librerías pero es más chorra
+
+no descomprimir, que le código vaya analizando con código las distintas partes del zip y crear una sparse matrix (filas playlist columnas canción)(moitos 0 poucos 1)
+
+solo hay que leer una vez los datos, a partir de ahí trabajamos on la matriz
