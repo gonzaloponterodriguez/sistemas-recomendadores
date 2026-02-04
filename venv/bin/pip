@@ -1,4 +1,4 @@
-#!/mnt/c/Users/BEEP/Downloads/universidad/cuarto/sr/venv/bin/python3
+#!/home/pablo/cuarto/sr/venv/bin/python3
 # -*- coding: utf-8 -*-
 import re
 import sys
