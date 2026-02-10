@@ -1,4 +1,4 @@
-#!/home/pablo/cuarto/sr/venv/bin/python3
+#!/home/user/udc/sr/practica-spotify/venv/bin/python3
 # -*- coding: utf-8 -*-
 import re
 import sys
