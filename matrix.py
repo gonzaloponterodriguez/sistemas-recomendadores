@@ -36,14 +36,13 @@ playlist_id_int, playlist_id_mapeo = string_to_int(playlist_id)
 track_id_int, track_id_mapeo = string_to_int(track_id)
 
 matrix = csr_matrix((value, (playlist_id_int, track_id_int)),
-                     shape=(len(playlist_id_int), len(track_id_mapeo)))
+                     shape=(len(playlist_id_mapeo, len(track_id_mapeo))))
 
 
 # Save the matrix to a .npz file
 save_npz("sparse_matrix_test.npz", matrix, compressed=False)
 print("CSR matrix created and saved to 'sparse_matrix_test.npz'.")
 
-# Load the matrix from the .npz file
 # Load the matrix (keep it sparse!)
 matrix2 = load_npz("sparse_matrix_test.npz")
 print("\nMatrix loaded from 'sparse_matrix_test.npz':")
