@@ -1,2 +1,4 @@
+zipfile
+json
 numpy
 scipy
