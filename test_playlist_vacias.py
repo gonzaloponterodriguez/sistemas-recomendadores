@@ -3,7 +3,7 @@ import json
 import numpy as np
 from scipy.sparse import csr_matrix, save_npz, load_npz
 
-zip_path = "spotify_test_playlists.zip"
+zip_path = "datos/spotify_train_dataset.zip"
 
 # Usamos listas estándar de Python (son más rápidas para 'append' que numpy arrays en bucle)
 rows = []
@@ -74,11 +74,12 @@ matrix = csr_matrix((data_np, (rows_np, cols_np)),
                     shape=(num_playlists, num_tracks),
                     dtype=np.int8)
 
-save_npz("sparse_matrix_test.npz", matrix)
+save_npz("matrix/sparse_matrix_train.npz", matrix)
 print("CSR matrix created and saved.")
 
+
 # --- VERIFICACIÓN ---
-matrix2 = load_npz("sparse_matrix_test.npz")
+matrix2 = load_npz("matrix/sparse_matrix_train.npz")
 
 # Verificamos filas vacías
 # axis=1 suma a través de las columnas (para cada fila)
