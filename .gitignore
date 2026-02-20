@@ -1,3 +1,5 @@
 venv/
 sparse_matrix.npz
 datos/
+mapas/
+matrices/
