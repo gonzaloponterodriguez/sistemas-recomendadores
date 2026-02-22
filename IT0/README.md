@@ -35,17 +35,13 @@ Para reproducir los resultados y generar el archivo de recomendaciones, el proce
 
 **Preparación del entorno**
 1. Abrir una terminal en la raíz del proyecto.
-2. Crear un entorno virtual:
-   > `python -m venv venv`
-3. Activar el entorno virtual:
-   * En Windows: `venv\Scripts\activate`
-   * En macOS/Linux: `source venv/bin/activate`
-4. Instalar las librerías necesarias (numpy y scipy):
+2. Crear un entorno virtual.
+3. Activar el entorno virtual.
+4. Instalar las librerías necesarias:
    > `pip install -r requirements.txt`
 
 **Ejecución:**
-Desde la terminal (con el entorno activado), situado en la carpeta raíz del proyecto, ejecuta un único comando:
-> `python main.py`
+Desde la terminal (con el entorno activado), situado en la carpeta raíz del proyecto, ejecuta uel archivo `main.py`
 
 Este script se encargará de ejecutar secuencialmente todo el *pipeline*:
 1. Leerá los datos de entrenamiento y creará la carpeta `matrix/`.
