@@ -1,5 +1,5 @@
 venv/
-sparse_matrix.npz
 datos/
 mapas/
 matrices/
+IT0/resultado_baseline.csv
