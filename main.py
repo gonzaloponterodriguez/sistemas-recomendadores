@@ -24,8 +24,12 @@ def ejecutar_script(nombre_script):
         sys.exit(1)
 
 if __name__ == "__main__":
-   
-    ejecutar_script("creacion_matrix.py")
-    ejecutar_script("baseline_popularidad.py")
-    ejecutar_script("evaluacion.py")
-    
+    input_iteracion = input("Ingresa el número de la iteración a ejecutar: ")
+    if input_iteracion not in ["0", "1"]:
+        print("Iteración no válida. Por favor, ingresa 0 o 1.")
+        sys.exit(1)
+    if input_iteracion == "0":
+        ejecutar_script("creacion_matrix.py")
+        ejecutar_script("baseline_popularidad.py")
+        ejecutar_script("evaluacion.py")
+        
