@@ -10,9 +10,8 @@ test_zip_path = "datos/spotify_test_playlists.zip"
 vecinos_path = "vecinos_test.json"
 output_file_path = "resultado_user_knn.csv"
 
-# HIPERPARÁMETRO: Puedes cambiar este número (entre 1 y 1000) y volver a ejecutar 
-# este script sin tener que recalcular todas las similitudes.
-K_NEIGHBORS = 150 
+# Bajamos el K a 40 para hacer las recomendaciones más específicas y evitar sesgo de popularidad
+K_NEIGHBORS = 40 
 
 print(f"--- INICIANDO FASE 2: GENERACIÓN DE RECOMENDACIONES (K={K_NEIGHBORS}) ---")
 
@@ -29,7 +28,13 @@ except FileNotFoundError:
     print("Error: Asegúrate de haber ejecutado 'calcular_vecinos.py' primero.")
     exit()
 
-# Extraer las semillas del test para no recomendarlas de nuevo
+# --- NUEVO: PRECALCULAR BASELINE PARA COLD START ---
+print("Calculando Top Popularidad global para playlists vacías (Cold Start)...")
+popularity_counts = np.array(train_matrix.sum(axis=0)).flatten()
+top_popular_indices = np.argsort(popularity_counts)[-500:][::-1]
+top_popular_uris = [index_to_track[idx] for idx in top_popular_indices]
+
+# Extraer las semillas del test
 print("Cargando semillas de test...")
 test_seeds = {}
 with zipfile.ZipFile(test_zip_path, "r") as zipf:
@@ -50,36 +55,44 @@ for i, (pid_str, data) in enumerate(vecinos_data.items()):
     pid = int(pid_str)
     semillas = test_seeds.get(pid, [])
     
-    # Recortamos a los K vecinos que queremos usar en esta ejecución
     k_indices = data["indices"][:K_NEIGHBORS]
-    k_similitudes = np.array(data["similitudes"][:K_NEIGHBORS]).reshape(1, -1)
     
     if len(k_indices) > 0:
-        # OPTIMIZACIÓN APLICADA: 
-        # Extraemos la submatriz solo de estos K vecinos
+        # POTENCIAMOS LAS SIMILITUDES: Elevamos al cubo para dar más peso a los vecinos muy cercanos
+        similitudes_base = np.array(data["similitudes"][:K_NEIGHBORS])
+        pesos_potenciados = np.power(similitudes_base, 3).reshape(len(k_indices), 1)
+        
         submatriz_vecinos = train_matrix[k_indices]
         
-        # Al multiplicar una matriz dispersa, matemáticamente ignora todas 
-        # las columnas (canciones) que están a 0 en el perfil de estos vecinos.
-        # Devuelve un array con puntuaciones solo para los items candidatos.
-        item_scores = (k_similitudes @ submatriz_vecinos).flatten()
+        # Multiplicamos la transpuesta de vecinos por los pesos potenciados
+        item_scores = np.array(submatriz_vecinos.T.dot(pesos_potenciados)).flatten()
         
-        # Penalizamos fuertemente las canciones que el usuario ya tiene en su playlist
+        # Penalizamos fuertemente las canciones que el usuario ya tiene
         item_scores[semillas] = -np.inf
         
         # Obtenemos los índices de las 500 mejores canciones
-        # np.argpartition es mucho más rápido que np.argsort para sacar el top 500
         if len(item_scores) >= 500:
             top_500_idx = np.argpartition(item_scores, -500)[-500:]
-            # Argpartition no ordena internamente los 500, así que los ordenamos ahora
             top_500_idx = top_500_idx[np.argsort(item_scores[top_500_idx])[::-1]]
         else:
             top_500_idx = np.argsort(item_scores)[::-1]
             
-        # Filtramos canciones con puntuación 0 (nadie de los vecinos las tenía)
+        # Filtramos canciones con puntuación 0
         recommendations = [index_to_track[idx] for idx in top_500_idx if item_scores[idx] > 0]
+        
+        # Fallback. Si KNN encontró menos de 500, rellenamos con las populares
+        if len(recommendations) < 500:
+            actuales = set(recommendations)
+            semillas_uris = {index_to_track[s] for s in semillas}
+            
+            for uri in top_popular_uris:
+                if uri not in actuales and uri not in semillas_uris:
+                    recommendations.append(uri)
+                    if len(recommendations) == 500:
+                        break
     else:
-        recommendations = []
+        # Playlists 100% vacías (Cold Start) se llevan la popularidad directamente
+        recommendations = top_popular_uris.copy()
         
     results[pid] = recommendations
     
@@ -89,7 +102,7 @@ for i, (pid_str, data) in enumerate(vecinos_data.items()):
 # --- GUARDAR RESULTADOS ---
 print(f"Guardando CSV en {output_file_path}...")
 with open(output_file_path, "w") as f:
-    f.write("team_info,Pablo Noura Gonzalo,contacto@email.com\n")
+    f.write("team_info, Pablo Fernandez Rubal - Noura el Morchid - Gonzalo Ponte Rodriguez, pablo.fernandez.rubal@udc.es - n.elmorchid@udc.es - g.ponte@udc.es\n")
     for pid, tracks in results.items():
         f.write(f"{pid}," + ",".join(tracks) + "\n")
         

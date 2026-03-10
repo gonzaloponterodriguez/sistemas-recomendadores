@@ -1,4 +1,5 @@
 import json
+import sys
 import numpy as np
 import os
 import zipfile
@@ -9,6 +10,13 @@ input_dir = "matrix"
 test_zip_path = "datos/spotify_test_playlists.zip"
 output_file_path = "vecinos_test.json"
 MAX_VECINOS_A_GUARDAR = 1000 # Guardamos los 1000 mejores por si luego quieres probar K=10, 50, 100 o 500
+
+# COMPROBACIÓN INICIAL
+if os.path.exists(output_file_path) :
+    print("Los vecinos ya estaban creados en el directorio.")
+    print("Se cancela la ejecución para evitar duplicar el trabajo.")
+    sys.exit()
+
 
 print("--- INICIANDO FASE 1: PRECOMPUTACIÓN DE VECINOS KNN ---")
 

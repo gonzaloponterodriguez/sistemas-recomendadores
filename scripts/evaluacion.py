@@ -1,9 +1,11 @@
 import json
 import numpy as np
 import math
+import os
+import sys
 import zipfile
 
-predictions_path = "resultado_baseline.csv" 
+predictions_path = sys.argv[1] if len(sys.argv) > 1 else "resultado_item_knn.csv"
 ground_truth_zip = "datos/spotify_test_playlists.zip" 
 
 def r_precision(predicted, actual):
@@ -65,6 +67,10 @@ def recommended_songs_clicks(predicted, actual):
 # MAIN
 print("Cargando archivos...")
 
+if not os.path.exists(predictions_path):
+    print(f"No se encuentra el archivo de predicciones: {predictions_path}")
+    sys.exit(1)
+
 # Cargar Predicciones
 preds_data = {}
 with open(predictions_path, 'r') as f:
@@ -124,7 +130,7 @@ for pid_str, predicted_tracks in preds_data.items():
     clicks.append(cl)
 
 # RESULTADOS FINALES
-print(" EVALUACIÓN ITERACIÓN 0 \n")
+print(f" EVALUACIÓN ({predictions_path}) \n")
 print(f"R-Precision media: {np.mean(r_precisions):.4f}")
 print(f"NDCG media:        {np.mean(ndcgs):.4f}")
 print(f"Clicks medios:     {np.mean(clicks):.4f}")

@@ -1,4 +1,5 @@
 import json
+import sys
 import numpy as np
 import os
 import zipfile
@@ -6,7 +7,14 @@ from scipy.sparse import load_npz
 
 input_dir = "matrix"
 output_file_path = "resultado_baseline.csv"
-test_zip_path = "datos/spotify_test_playlists.zip"  # Chequear que la ruta es correcta antes de ejecutar
+test_zip_path = "datos/spotify_test_playlists.zip"  
+
+# COMPROBACIÓN INICIAL
+if os.path.exists(output_file_path) :
+    print("El baseline ya estaba creado en el directorio.")
+    print("Se cancela la ejecución para evitar duplicar el trabajo.")
+    sys.exit()
+
 
 
 # CARGA DE DATOS

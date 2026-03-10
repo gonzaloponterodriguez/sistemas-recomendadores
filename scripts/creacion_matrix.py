@@ -1,3 +1,4 @@
+import sys
 import zipfile
 import json
 import numpy as np
@@ -6,6 +7,16 @@ from scipy.sparse import csr_matrix, save_npz
 
 zip_path = "datos/spotify_train_dataset.zip" 
 output_dir = "matrix"
+matrix_path = os.path.join(output_dir, "sparse_matrix_train.npz")
+track_json_path = os.path.join(output_dir, "track_to_index_train.json")
+pid_json_path = os.path.join(output_dir, "pid_to_index_train.json")
+
+# COMPROBACIÓN INICIAL
+# Comprobamos si los 3 archivos ya existen en el disco
+if os.path.exists(matrix_path) and os.path.exists(track_json_path) and os.path.exists(pid_json_path):
+    print("La matriz y los diccionarios ya estaban creados en el directorio.")
+    print("Se cancela la ejecución para evitar duplicar el trabajo.")
+    sys.exit()
 
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)
