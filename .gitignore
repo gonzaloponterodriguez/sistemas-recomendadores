@@ -3,3 +3,7 @@ datos/
 mapas/
 matrices/
 IT0/resultado_baseline.csv
+IT1/resultados_knn.npz
+IT1/resultado_baseline.csv
+IT1/resultado_baseline2.csv
+notas.txt
