@@ -40,7 +40,7 @@ if __name__ == "__main__":
         if input_modelo == "user":
             ejecutar_script("calcular_vecinos.py")
             ejecutar_script("user_based.py")
-            ejecutar_script("evaluacion.py", "resultado_user_knn(k=150).csv")
+            ejecutar_script("evaluacion.py", "resultado_user_knn(k=200).csv")
         elif input_modelo == "item":
             ejecutar_script("item_based.py")
             ejecutar_script("evaluacion.py", "resultado_item_knn.csv")

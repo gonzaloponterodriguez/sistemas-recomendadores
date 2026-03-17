@@ -3,6 +3,7 @@ matrix/
 venv/
 archivos_iniciales/
 resultados/
+resultados_user.txt
 vecinos_test.json   
 apuntes.txt
 __pycache__/

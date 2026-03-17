@@ -16,7 +16,7 @@ os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
 os.environ["NUMEXPR_NUM_THREADS"] = "1"
 
 # --- CONFIGURACIÓN ---
-K_NEIGHBORS = 150
+K_NEIGHBORS = 200
 input_dir = "matrix"
 test_zip_path = "datos/spotify_test_playlists.zip"
 vecinos_path = "vecinos_test.json"
@@ -39,20 +39,35 @@ def procesar_playlist(args):
         similitudes_base = np.array(data["similitudes"][:K_NEIGHBORS])
         pesos_potenciados = np.power(similitudes_base, 3) 
         
+        # 1. Multiplicación (igual que antes)
         submatriz_vecinos = train_matrix[k_indices]
         item_scores = submatriz_vecinos.T.dot(pesos_potenciados).flatten()
         
+        # --- EL SÚPER TRUCO DE OPTIMIZACIÓN ---
+        # 2. Sacamos SOLO los IDs de las canciones que los vecinos realmente tienen
+        canciones_posibles = np.unique(submatriz_vecinos.indices)
+        
+        # 3. Quitamos las semillas de esa lista para no recomendarlas
         if semillas:
-            item_scores[semillas] = -np.inf
-            
-        if len(item_scores) >= 500:
-            top_500_idx = np.argpartition(item_scores, -500)[-500:]
-            top_500_idx = top_500_idx[np.argsort(item_scores[top_500_idx])[::-1]]
+            canciones_posibles = np.setdiff1d(canciones_posibles, semillas, assume_unique=True)
+        
+        # 4. Extraemos las puntuaciones SOLO de esas canciones válidas
+        puntuaciones_posibles = item_scores[canciones_posibles]
+        
+        # 5. Buscamos el Top 500 en esta lista enana (¡vuela!)
+        if len(puntuaciones_posibles) >= 500:
+            top_500_local = np.argpartition(puntuaciones_posibles, -500)[-500:]
+            top_500_local = top_500_local[np.argsort(puntuaciones_posibles[top_500_local])[::-1]]
+            # Recuperamos el ID real de la canción
+            top_500_idx = canciones_posibles[top_500_local] 
         else:
-            top_500_idx = np.argsort(item_scores)[::-1]
+            top_500_local = np.argsort(puntuaciones_posibles)[::-1]
+            top_500_idx = canciones_posibles[top_500_local]
             
+        # Filtramos (por si hubiera alguna con score <= 0)
         valid_idx = top_500_idx[item_scores[top_500_idx] > 0]
         recommendations = [index_to_track[idx] for idx in valid_idx]
+        # -------------------------------------
         
         knn_count = len(recommendations)
         
