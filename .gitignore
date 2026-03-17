@@ -2,10 +2,9 @@ datos/
 matrix/
 venv/
 archivos_iniciales/
-resultado_baseline.csv
-resultado_item_knn.csv
-resultado_user_knn.csv
+resultados/
 vecinos_test.json   
 apuntes.txt
 __pycache__/
 scripts/__pycache__/
+scripts/user_viejo.py

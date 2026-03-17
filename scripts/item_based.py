@@ -1,4 +1,5 @@
 import json
+import sys
 import numpy as np
 import os
 import zipfile
@@ -8,6 +9,11 @@ from scipy.sparse import load_npz
 input_dir = "matrix"
 test_zip_path = "datos/spotify_test_playlists.zip"
 output_file_path = "resultado_item_knn.csv"
+
+if os.path.exists(output_file_path):
+    print("Las recomendaciones ya estaban creadas en el directorio.")
+    print("Se cancela la ejecución para evitar duplicar el trabajo.")
+    sys.exit()
 
 print("INICIANDO MODELO ITEM-BASED KNN")
 

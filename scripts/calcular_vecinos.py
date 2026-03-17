@@ -9,14 +9,13 @@ from scipy.sparse import load_npz, csr_matrix
 input_dir = "matrix"
 test_zip_path = "datos/spotify_test_playlists.zip"
 output_file_path = "vecinos_test.json"
-MAX_VECINOS_A_GUARDAR = 1000 # Guardamos los 1000 mejores por si luego quieres probar K=10, 50, 100 o 500
+MAX_VECINOS_A_GUARDAR = 200 # Guardamos los 200 mejores
 
 # COMPROBACIÓN INICIAL
-if os.path.exists(output_file_path) :
+if os.path.exists(output_file_path):
     print("Los vecinos ya estaban creados en el directorio.")
     print("Se cancela la ejecución para evitar duplicar el trabajo.")
     sys.exit()
-
 
 print("--- INICIANDO FASE 1: PRECOMPUTACIÓN DE VECINOS KNN ---")
 
@@ -34,7 +33,7 @@ num_train_playlists, num_tracks = train_matrix.shape
 
 # Precomputar normas de entrenamiento para el Coseno
 print("Precomputando normas de las playlists de entrenamiento...")
-train_norms = np.sqrt(train_matrix.power(2).sum(axis=1).A1)
+train_norms = np.sqrt(train_matrix.getnnz(axis=1))
 train_norms[train_norms == 0] = 1e-9 # Evitar divisiones por cero
 
 # --- PROCESAR TEST ---
@@ -67,9 +66,17 @@ for i, playlist in enumerate(playlists):
         user_norm = np.sqrt(len(user_track_indices)) 
         similarities = dot_products / (user_norm * train_norms)
         
-        # Extraer Top N vecinos
-        best_neighbors_idx = np.argsort(similarities)[-MAX_VECINOS_A_GUARDAR:][::-1]
+        # --- OPTIMIZACIÓN NIVEL 1: Extracción ultrarrápida de vecinos ---
+        if len(similarities) >= MAX_VECINOS_A_GUARDAR:
+            # 1. Separamos los 200 mejores sin ordenarlos todos (Ahorro masivo de tiempo)
+            top_k_idx = np.argpartition(similarities, -MAX_VECINOS_A_GUARDAR)[-MAX_VECINOS_A_GUARDAR:]
+            # 2. Ordenamos solo esos 200 de mayor a menor
+            best_neighbors_idx = top_k_idx[np.argsort(similarities[top_k_idx])[::-1]]
+        else:
+            best_neighbors_idx = np.argsort(similarities)[::-1]
+            
         best_similarities = similarities[best_neighbors_idx]
+        # ----------------------------------------------------------------
         
         # Guardamos convirtiendo a tipos nativos de Python para el JSON
         vecinos_guardados[pid] = {
@@ -87,4 +94,4 @@ for i, playlist in enumerate(playlists):
 print(f"Guardando similitudes en {output_file_path}...")
 with open(output_file_path, "w") as f:
     json.dump(vecinos_guardados, f)
-print("¡Fase 1 completada!")
+print("¡Fase 1 completada con éxito!")
