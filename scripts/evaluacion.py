@@ -5,7 +5,7 @@ import os
 import sys
 import zipfile
 
-predictions_path = sys.argv[1] if len(sys.argv) > 1 else "resultado_item_knn.csv"
+predictions_path = sys.argv[1] if len(sys.argv) > 1 else "resultados/baseline.csv"
 ground_truth_zip = "datos/spotify_test_playlists.zip" 
 
 def r_precision(predicted, actual):

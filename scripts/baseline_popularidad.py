@@ -6,8 +6,10 @@ import zipfile
 from scipy.sparse import load_npz
 
 input_dir = "matrix"
-output_file_path = "resultado_baseline.csv"
+output_file_path = "resultados/baseline.csv"
 test_zip_path = "datos/spotify_test_playlists.zip"  
+
+os.makedirs(os.path.dirname(output_file_path), exist_ok=True)
 
 # COMPROBACIÓN INICIAL
 if os.path.exists(output_file_path) :
@@ -98,7 +100,7 @@ try:
         f.write("team_info, Pablo Fernandez Rubal - Noura el Morchid - Gonzalo Ponte Rodriguez, pablo.fernandez.rubal@udc.es - n.elmorchid@udc.es - g.ponte@udc.es\n")
         for pid, tracks in results.items():
             linea = f"{pid}," + ",".join(tracks)
-            f.write("\n" + linea + "\n")
+            f.write(linea + "\n")
             
     print("Archivo generado correctamente")
 

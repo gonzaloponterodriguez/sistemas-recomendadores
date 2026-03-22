@@ -4,12 +4,14 @@ import numpy as np
 import os
 import zipfile
 from scipy.sparse import load_npz, csr_matrix
+from tqdm import tqdm
 
-# --- CONFIGURACIÓN ---
+# CONFIGURACIÓN 
 input_dir = "matrix"
 test_zip_path = "datos/spotify_test_playlists.zip"
-output_file_path = "vecinos_test.json"
-MAX_VECINOS_A_GUARDAR = 200 # Guardamos los 200 mejores
+output_file_path = "vecinos.json"
+MAX_VECINOS_A_GUARDAR = 500
+BATCH_SIZE = 500  
 
 # COMPROBACIÓN INICIAL
 if os.path.exists(output_file_path):
@@ -17,9 +19,9 @@ if os.path.exists(output_file_path):
     print("Se cancela la ejecución para evitar duplicar el trabajo.")
     sys.exit()
 
-print("--- INICIANDO FASE 1: PRECOMPUTACIÓN DE VECINOS KNN ---")
+print("INICIANDO FASE 1: PRECOMPUTACIÓN DE VECINOS")
 
-# --- CARGA DE DATOS ---
+# CARGA DE DATOS
 try:
     print("Cargando matriz de entrenamiento...")
     train_matrix = load_npz(os.path.join(input_dir, "sparse_matrix_train.npz"))
@@ -27,17 +29,18 @@ try:
         track_to_index = json.load(f)
 except FileNotFoundError:
     print("Error: No se encuentran los archivos en la carpeta 'matrix'")
-    exit()
+    sys.exit()
 
 num_train_playlists, num_tracks = train_matrix.shape
 
-# Precomputar normas de entrenamiento para el Coseno
+# Precomputar normas de entrenamiento para el Coseno (y su inversa para multiplicar más rápido)
 print("Precomputando normas de las playlists de entrenamiento...")
 train_norms = np.sqrt(train_matrix.getnnz(axis=1))
 train_norms[train_norms == 0] = 1e-9 # Evitar divisiones por cero
+train_norms_inv = 1.0 / train_norms  # Multiplicar es mucho más rápido que dividir
 
-# --- PROCESAR TEST ---
-print(f"Buscando vecinos para el archivo {test_zip_path}...")
+# PROCESAR TEST 
+print(f"Leyendo archivo de test: {test_zip_path}...")
 vecinos_guardados = {}
 
 with zipfile.ZipFile(test_zip_path, "r") as zipf:
@@ -48,50 +51,82 @@ with zipfile.ZipFile(test_zip_path, "r") as zipf:
             break
             
 playlists = test_data.get("playlists", [])
-total = len(playlists)
+total_playlists = len(playlists)
 
-for i, playlist in enumerate(playlists):
-    pid = playlist["pid"]
-    user_track_indices = [track_to_index[t["track_uri"]] for t in playlist["tracks"] if t["track_uri"] in track_to_index]
+print(f"Calculando similitudes en lotes de {BATCH_SIZE}...")
+
+# Iteramos en bloques (batches)
+for i in tqdm(range(0, total_playlists, BATCH_SIZE), desc="Procesando Lotes"):
+    batch = playlists[i:i + BATCH_SIZE]
     
-    if user_track_indices:
-        # Vector disperso del usuario
-        data = np.ones(len(user_track_indices))
-        rows = np.zeros(len(user_track_indices))
-        cols = np.array(user_track_indices)
-        user_vector = csr_matrix((data, (rows, cols)), shape=(1, num_tracks))
+    # Construir la matriz dispersa para este lote
+    data, rows, cols = [], [], []
+    batch_pids = []
+    user_norms = []
+    
+    for row_idx, playlist in enumerate(batch):
+        pid = playlist["pid"]
+        batch_pids.append(pid)
         
-        # Similitud del Coseno: Producto punto / (Norma A * Norma B)
-        dot_products = train_matrix.dot(user_vector.T).toarray().flatten()
-        user_norm = np.sqrt(len(user_track_indices)) 
-        similarities = dot_products / (user_norm * train_norms)
+        user_track_indices = [track_to_index[t["track_uri"]] for t in playlist["tracks"] if t["track_uri"] in track_to_index]
         
-        # --- OPTIMIZACIÓN NIVEL 1: Extracción ultrarrápida de vecinos ---
-        if len(similarities) >= MAX_VECINOS_A_GUARDAR:
-            # 1. Separamos los 200 mejores sin ordenarlos todos (Ahorro masivo de tiempo)
-            top_k_idx = np.argpartition(similarities, -MAX_VECINOS_A_GUARDAR)[-MAX_VECINOS_A_GUARDAR:]
-            # 2. Ordenamos solo esos 200 de mayor a menor
-            best_neighbors_idx = top_k_idx[np.argsort(similarities[top_k_idx])[::-1]]
+        if user_track_indices:
+            data.extend([1.0] * len(user_track_indices))
+            rows.extend([row_idx] * len(user_track_indices))
+            cols.extend(user_track_indices)
+            user_norms.append(np.sqrt(len(user_track_indices)))
         else:
-            best_neighbors_idx = np.argsort(similarities)[::-1]
+            # Cold start
+            user_norms.append(1.0) # Evita división por cero
             
-        best_similarities = similarities[best_neighbors_idx]
-        # ----------------------------------------------------------------
-        
-        # Guardamos convirtiendo a tipos nativos de Python para el JSON
-        vecinos_guardados[pid] = {
-            "indices": best_neighbors_idx.tolist(),
-            "similitudes": best_similarities.tolist()
-        }
-    else:
-        # Cold start: si no conocemos ninguna canción
-        vecinos_guardados[pid] = {"indices": [], "similitudes": []}
-        
-    if (i + 1) % 100 == 0:
-        print(f"Calculados vecinos para: {i + 1}/{total} playlists")
+    # Si el lote entero está vacío , lo saltamos
+    if not data:
+        for pid in batch_pids:
+            vecinos_guardados[pid] = {"indices": [], "similitudes": []}
+        continue
 
-# --- GUARDAR JSON ---
-print(f"Guardando similitudes en {output_file_path}...")
+    # Creamos la matriz del lote entero
+    batch_matrix = csr_matrix((data, (rows, cols)), shape=(len(batch), num_tracks))
+    
+    # MULTIPLICACIÓN MATRICIAL
+    # Multiplicamos el lote de test (ej: 1000xN) por toda la de train transpuesta (NxM)
+    # Resultado: matriz densa de 1000 x M (M = num playlists entrenamiento)
+    dot_products = batch_matrix.dot(train_matrix.T).toarray()
+    
+    # CÁLCULO DE SIMILITUD VECTORIZADO 
+    user_norms_inv = 1.0 / np.array(user_norms)
+    
+    # Fórmula del coseno optimizada con numpy broadcasting
+    similarities = dot_products * train_norms_inv
+    similarities *= user_norms_inv[:, np.newaxis] 
+    
+    # EXTRACCIÓN DEL TOP K PARA TODO EL LOTE A LA VEZ 
+    # Extraemos los 200 mejores índices para cada fila del lote de golpe
+    top_k_idx = np.argpartition(similarities, -MAX_VECINOS_A_GUARDAR, axis=1)[:, -MAX_VECINOS_A_GUARDAR:]
+    
+    # Guardamos los resultados
+    for row_idx in range(len(batch)):
+        pid = batch_pids[row_idx]
+        
+        # Verificamos si era cold start
+        if user_norms[row_idx] == 1.0 and np.sum(batch_matrix[row_idx]) == 0:
+            vecinos_guardados[pid] = {"indices": [], "similitudes": []}
+            continue
+            
+        row_sims = similarities[row_idx]
+        row_top_k_idx = top_k_idx[row_idx]
+        
+        # Ordenamos solo los ganadores de mayor a menor
+        sorted_idx = row_top_k_idx[np.argsort(row_sims[row_top_k_idx])[::-1]]
+        sorted_sims = row_sims[sorted_idx]
+        
+        vecinos_guardados[pid] = {
+            "indices": sorted_idx.tolist(),
+            "similitudes": sorted_sims.tolist()
+        }
+
+# GUARDAR JSON 
+print(f"\nGuardando similitudes en {output_file_path}...")
 with open(output_file_path, "w") as f:
     json.dump(vecinos_guardados, f)
 print("¡Fase 1 completada con éxito!")

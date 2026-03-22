@@ -1,8 +1,0 @@
-UserBased
-k=5 : 0.0867 ; 0.1866 ; 8.5917 ; aprox 10mins
-k=10 : 0.1013 ; 0.2183 ; 7.8678; aprox 10mins
-k=100: 0.1424 ; 0.3033 ; 6.2949 ; aprox 12mins
-k=200: 0.1492 ; 0.3202  ; 5.977 ; aprox 13mins
-
-ItemBased
-

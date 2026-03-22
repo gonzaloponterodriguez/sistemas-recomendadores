@@ -7,29 +7,28 @@ from scipy.sparse import load_npz
 from multiprocessing import Pool, cpu_count
 from tqdm import tqdm
 
-# ¡IMPORTANTE! Obligar a NumPy a usar 1 solo hilo por proceso.
-# Así los 8 procesos de Python no se pelean entre ellos.
+# Obligar a NumPy a usar 1 solo hilo por proceso.
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
 os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
 os.environ["NUMEXPR_NUM_THREADS"] = "1"
 
-# --- CONFIGURACIÓN ---
-K_NEIGHBORS = 200
+# CONFIGURACIÓN 
+K_NEIGHBORS = 500
 input_dir = "matrix"
 test_zip_path = "datos/spotify_test_playlists.zip"
-vecinos_path = "vecinos_test.json"
-output_file_path = f"resultado_user_knn(k={K_NEIGHBORS}).csv"
+vecinos_path = "vecinos.json"
+output_file_path = "resultados/user_based.csv"
 
-
+os.makedirs(os.path.dirname(output_file_path), exist_ok=True)
 
 # VARIABLES GLOBALES (Para que los trabajadores compartan RAM y no dupliquen la matriz)
 train_matrix = None
 index_to_track = None
 top_popular_uris = None
 
-# --- LA FUNCIÓN QUE EJECUTARÁ CADA TRABAJADOR (HILO) ---
+# LA FUNCIÓN QUE EJECUTARÁ CADA HILO
 def procesar_playlist(args):
     pid, data, semillas, semillas_uris_set = args
     
@@ -39,22 +38,21 @@ def procesar_playlist(args):
         similitudes_base = np.array(data["similitudes"][:K_NEIGHBORS])
         pesos_potenciados = np.power(similitudes_base, 3) 
         
-        # 1. Multiplicación (igual que antes)
+        # Multiplicación 
         submatriz_vecinos = train_matrix[k_indices]
         item_scores = submatriz_vecinos.T.dot(pesos_potenciados).flatten()
         
-        # --- EL SÚPER TRUCO DE OPTIMIZACIÓN ---
-        # 2. Sacamos SOLO los IDs de las canciones que los vecinos realmente tienen
+        # Sacamos SOLO los IDs de las canciones que los vecinos realmente tienen
         canciones_posibles = np.unique(submatriz_vecinos.indices)
         
-        # 3. Quitamos las semillas de esa lista para no recomendarlas
+        # Quitamos las semillas de esa lista para no recomendarlas
         if semillas:
             canciones_posibles = np.setdiff1d(canciones_posibles, semillas, assume_unique=True)
         
-        # 4. Extraemos las puntuaciones SOLO de esas canciones válidas
+        # Extraemos las puntuaciones solo de esas canciones válidas
         puntuaciones_posibles = item_scores[canciones_posibles]
         
-        # 5. Buscamos el Top 500 en esta lista enana (¡vuela!)
+        # Buscamos el Top 500 en esta lista reducida de canciones posibles
         if len(puntuaciones_posibles) >= 500:
             top_500_local = np.argpartition(puntuaciones_posibles, -500)[-500:]
             top_500_local = top_500_local[np.argsort(puntuaciones_posibles[top_500_local])[::-1]]
@@ -67,7 +65,6 @@ def procesar_playlist(args):
         # Filtramos (por si hubiera alguna con score <= 0)
         valid_idx = top_500_idx[item_scores[top_500_idx] > 0]
         recommendations = [index_to_track[idx] for idx in valid_idx]
-        # -------------------------------------
         
         knn_count = len(recommendations)
         
@@ -84,7 +81,7 @@ def procesar_playlist(args):
         
     return pid, recommendations, knn_count, len(semillas)
 
-# --- BLOQUE PRINCIPAL ---
+# BLOQUE PRINCIPAL
 if __name__ == '__main__':
 
     if os.path.exists(output_file_path):
@@ -92,7 +89,7 @@ if __name__ == '__main__':
         print("Se cancela la ejecución para evitar duplicar el trabajo.")
         sys.exit()
 
-    print(f"--- INICIANDO FASE 2: GENERACIÓN DE RECOMENDACIONES PARALELIZADA (K={K_NEIGHBORS}) ---")
+    print(f"INICIANDO FASE 2: GENERACIÓN DE RECOMENDACIONES USER-BASED (K={K_NEIGHBORS}) ---")
     # CARGA DE DATOS A VARIABLES GLOBALES
     train_matrix = load_npz(os.path.join(input_dir, "sparse_matrix_train.npz")).tocsr()
     with open(os.path.join(input_dir, "track_to_index_train.json"), "r") as f:
@@ -162,7 +159,7 @@ if __name__ == '__main__':
     print(f"Guardando CSV en {output_file_path}...")
     with open(output_file_path, "w") as f:
         f.write("team_info, Pablo Fernandez Rubal - Noura el Morchid - Gonzalo Ponte Rodriguez, pablo.fernandez.rubal@udc.es - n.elmorchid@udc.es - g.ponte@udc.es\n")
-        for pid in sorted(results.keys()): # Ordenamos por PID (quitar)
+        for pid in (results.keys()): 
             f.write(f"{pid}," + ",".join(results[pid]) + "\n")
             
     print("¡Proceso multiproceso completado con éxito!")
